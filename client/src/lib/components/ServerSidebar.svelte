@@ -1,22 +1,13 @@
 <script>
-  import { createEventDispatcher } from "svelte";
-
-  export let servers = [];
-  export let currentServer = "";
-
-  const dispatch = createEventDispatcher();
-
-  function handleClick(server) {
-    dispatch("select", server);
-  }
+  import { servers, currentServerId, selectServer } from "../stores/chatStore.js";
 </script>
 
 <aside class="server-sidebar">
-  {#each servers as server}
+  {#each $servers as server}
     <button
       class="server-icon"
-      class:active={currentServer === server.name}
-      on:click={() => handleClick(server)}
+      class:active={$currentServerId === server.id}
+      on:click={() => selectServer(server.id)}
       title={server.name}
     >
       {server.icon}

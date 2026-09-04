@@ -1,20 +1,35 @@
 <script>
-  export let messages = [];
-  export let currentChannel = "";
+  import { messages, currentChannel, sendMessage } from "../stores/chatStore.js";
 
   let newMessage = "";
+
+  function handleKeydown(e) {
+    if (e.key === "Enter" && newMessage.trim()) {
+      sendMessage(newMessage.trim());
+      newMessage = "";
+    }
+  }
+
+  function handleSend() {
+    if (newMessage.trim()) {
+      sendMessage(newMessage.trim());
+      newMessage = "";
+    }
+  }
+
+  $: channelMessages = $messages[$currentChannel] || [];
 </script>
 
 <main class="chat-area">
   <header class="chat-header">
     <span class="channel-hash">#</span>
-    <h2>{currentChannel}</h2>
+    <h2>{$currentChannel}</h2>
   </header>
 
   <div class="messages">
-    {#each messages as message}
+    {#each channelMessages as message (message.id)}
       <div class="message">
-        <div class="message-avatar">M</div>
+        <div class="message-avatar">{message.avatar}</div>
         <div class="message-content">
           <div class="message-header">
             <span class="message-user">{message.user}</span>
@@ -23,15 +38,21 @@
           <p class="message-text">{message.content}</p>
         </div>
       </div>
+    {:else}
+      <div class="empty-state">
+        <p>No messages yet. Say something!</p>
+      </div>
     {/each}
   </div>
 
   <div class="message-input">
     <input
       type="text"
-      placeholder="Message #channel"
+      placeholder="Message #{$currentChannel}"
       bind:value={newMessage}
+      on:keydown={handleKeydown}
     />
+    <button class="send-btn" on:click={handleSend}>Send</button>
   </div>
 </main>
 
@@ -111,12 +132,22 @@
     line-height: 1.4;
   }
 
+  .empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #949ba4;
+  }
+
   .message-input {
     padding: 0 16px 16px;
+    display: flex;
+    gap: 8px;
   }
 
   .message-input input {
-    width: 100%;
+    flex: 1;
     padding: 12px 16px;
     border-radius: 8px;
     border: none;
@@ -128,5 +159,20 @@
 
   .message-input input::placeholder {
     color: #6d6f78;
+  }
+
+  .send-btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    border: none;
+    background-color: #5865f2;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .send-btn:hover {
+    background-color: #4752c4;
   }
 </style>

@@ -1,14 +1,5 @@
 <script>
-  import { createEventDispatcher } from "svelte";
-
-  export let channels = [];
-  export let currentChannel = "";
-
-  const dispatch = createEventDispatcher();
-
-  function handleClick(channel) {
-    dispatch("select", channel);
-  }
+  import { channels, currentChannel, selectChannel } from "../stores/chatStore.js";
 </script>
 
 <aside class="channel-list">
@@ -17,14 +8,14 @@
   </header>
 
   <div class="channel-items">
-    {#each channels as channel}
+    {#each $channels as channel}
       <button
         class="channel-item"
-        class:active={currentChannel === channel.name}
-        on:click={() => handleClick(channel)}
+        class:active={$currentChannel === channel}
+        on:click={() => selectChannel(channel)}
       >
         <span class="channel-hash">#</span>
-        <span class="channel-name">{channel.name}</span>
+        <span class="channel-name">{channel}</span>
       </button>
     {/each}
   </div>
