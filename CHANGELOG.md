@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.0-alpha.1] - 2026-09-04
+
+### Added
+- Tauri + Svelte project setup
+- Discord-like UI layout (server sidebar, channel list, chat area)
+- Dark theme styling
+- ServerSidebar component
+- ChannelList component
+- ChatArea component with message input
+
+## [v1.0.0] - 2026-09-04
+
 ### Added
 - Project scaffold and initial files
 - Git workflow setup (main/dev branches)
@@ -14,8 +26,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README.md with setup instructions
 - CHANGELOG.md for version tracking
 - .gitignore for Rust/Node/Tauri
-
-## [v1.0.0] - 2026-09-04
-
-### Added
-- Initial release
+- GNU GPL v3 License
