@@ -95,14 +95,27 @@ async fn handle_socket(
                     continue;
                 }
 
+                let timestamp = chrono::Utc::now()
+                    .format("%Y-%m-%dT%H:%M:%SZ")
+                    .to_string();
+
+                // Save to database
+                let _ = sqlx::query(
+                    "INSERT INTO messages (channel_id, user_id, content, created_at) VALUES (?, ?, ?, ?)"
+                )
+                .bind(channel_id)
+                .bind(user_id)
+                .bind(content)
+                .bind(&timestamp)
+                .execute(&state.pool)
+                .await;
+
                 let ws_msg = WsMessage {
                     user_id,
                     username: username_clone.clone(),
                     content: content.to_string(),
                     channel_id,
-                    timestamp: chrono::Utc::now()
-                        .format("%Y-%m-%dT%H:%M:%SZ")
-                        .to_string(),
+                    timestamp,
                 };
 
                 if let Ok(json) = serde_json::to_string(&ws_msg) {
