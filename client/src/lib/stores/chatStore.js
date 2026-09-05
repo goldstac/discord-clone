@@ -1,80 +1,111 @@
-import { writable, derived } from "svelte/store";
+import { writable, derived, get } from "svelte/store";
+import * as api from "../api.js";
 
-export const servers = writable([
-  { id: 1, name: "My Server", icon: "MS", channels: ["general", "random", "announcements"] },
-  { id: 2, name: "Gaming", icon: "GA", channels: ["valorant", "minecraft", "chat"] },
-  { id: 3, name: "Music", icon: "MU", channels: ["recommendations", "share", "lyrics"] },
-]);
-
-export const currentServerId = writable(1);
-export const currentChannel = writable("general");
+export const servers = writable([]);
+export const currentServerId = writable(null);
+export const currentChannel = writable(null);
+export const channels = writable([]);
+export const messages = writable([]);
+export const wsMessages = writable([]);
 
 export const currentServer = derived(
   [servers, currentServerId],
-  ([$servers, $currentServerId]) => $servers.find((s) => s.id === $currentServerId)
+  ([$servers, $currentServerId]) =>
+    $servers.find((s) => s.id === $currentServerId)
 );
 
-export const channels = derived(currentServer, ($currentServer) =>
-  $currentServer ? $currentServer.channels : []
-);
-
-export const messages = writable({
-  general: [
-    { id: 1, user: "Alice", content: "Hey everyone!", time: "10:30 AM", avatar: "A" },
-    { id: 2, user: "Bob", content: "What's up?", time: "10:32 AM", avatar: "B" },
-    { id: 3, user: "Charlie", content: "Welcome to the server!", time: "10:35 AM", avatar: "C" },
-  ],
-  random: [
-    { id: 1, user: "Dave", content: "Anyone playing tonight?", time: "9:00 PM", avatar: "D" },
-  ],
-  announcements: [
-    { id: 1, user: "Admin", content: "Server rules: Be nice!", time: "8:00 AM", avatar: "A" },
-  ],
-  valorant: [
-    { id: 1, user: "Pro", content: "Need 2 more for ranked", time: "11:00 PM", avatar: "P" },
-  ],
-  minecraft: [],
-  chat: [],
-  recommendations: [],
-  share: [],
-  lyrics: [],
-});
-
-export function selectServer(id) {
-  currentServerId.set(id);
-  const unsub = currentServer.subscribe(($server) => {
-    if ($server && $server.channels.length > 0) {
-      currentChannel.set($server.channels[0]);
+export async function loadServers() {
+  try {
+    const data = await api.getServers();
+    servers.set(data);
+    if (data.length > 0 && !get(currentServerId)) {
+      await selectServer(data[0].id);
     }
-  });
-  unsub();
+  } catch (e) {
+    console.error("Failed to load servers:", e);
+  }
 }
 
-export function selectChannel(name) {
-  currentChannel.set(name);
+export async function selectServer(id) {
+  currentServerId.set(id);
+  currentChannel.set(null);
+  channels.set([]);
+  messages.set([]);
+
+  try {
+    const data = await api.getChannels(id);
+    channels.set(data);
+    if (data.length > 0) {
+      await selectChannel(data[0].id, data[0].name);
+    }
+  } catch (e) {
+    console.error("Failed to load channels:", e);
+  }
 }
 
-export function sendMessage(content) {
-  let channelName;
-  currentChannel.subscribe((c) => channelName = c)();
+export async function selectChannel(id, name) {
+  currentChannel.set({ id, name });
+  messages.set([]);
 
-  const now = new Date();
-  const time = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  try {
+    const data = await api.getMessages(id);
+    messages.set(data);
+  } catch (e) {
+    console.error("Failed to load messages:", e);
+  }
+}
 
-  messages.update(($msgs) => {
-    const channelMsgs = $msgs[channelName] || [];
-    return {
-      ...$msgs,
-      [channelName]: [
-        ...channelMsgs,
-        {
-          id: Date.now(),
-          user: "You",
-          content,
-          time,
-          avatar: "Y",
-        },
-      ],
-    };
-  });
+export async function sendNewMessage(content) {
+  const channel = get(currentChannel);
+  if (!channel || !content.trim()) return;
+
+  try {
+    await api.sendMessage(channel.id, content);
+  } catch (e) {
+    console.error("Failed to send message:", e);
+  }
+}
+
+export async function createNewServer(name) {
+  try {
+    await api.createServer(name);
+    await loadServers();
+  } catch (e) {
+    console.error("Failed to create server:", e);
+  }
+}
+
+export async function createNewChannel(serverId, name) {
+  try {
+    await api.createChannel(serverId, name);
+    const data = await api.getChannels(serverId);
+    channels.set(data);
+  } catch (e) {
+    console.error("Failed to create channel:", e);
+  }
+}
+
+export async function joinWithInvite(code) {
+  try {
+    await api.joinServer(code);
+    await loadServers();
+  } catch (e) {
+    console.error("Failed to join server:", e);
+  }
+}
+
+export function addWsMessage(msg) {
+  const channel = get(currentChannel);
+  if (channel && msg.channel_id === channel.id) {
+    messages.update((msgs) => [
+      ...msgs,
+      {
+        id: Date.now(),
+        user_id: msg.user_id,
+        username: msg.username,
+        content: msg.content,
+        created_at: msg.timestamp,
+      },
+    ]);
+  }
 }
