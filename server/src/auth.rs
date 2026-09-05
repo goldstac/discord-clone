@@ -3,10 +3,19 @@ use bcrypt::{hash, verify, DEFAULT_COST};
 use chrono::{Duration, Utc};
 use jsonwebtoken::{encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
 
 use crate::ws::SharedState;
 
-const JWT_SECRET: &str = "discord-clone-secret-change-in-production";
+static JWT_SECRET: OnceLock<String> = OnceLock::new();
+
+pub fn set_jwt_secret(secret: &str) {
+    let _ = JWT_SECRET.set(secret.to_string());
+}
+
+fn get_jwt_secret() -> &'static str {
+    JWT_SECRET.get().map(|s| s.as_str()).unwrap_or("discord-clone-secret-change-in-production")
+}
 
 #[derive(Debug, Serialize)]
 pub struct ErrorResponse {
@@ -179,7 +188,7 @@ pub fn create_token(user_id: i64, username: &str) -> Result<String, String> {
     encode(
         &Header::default(),
         &claims,
-        &EncodingKey::from_secret(JWT_SECRET.as_bytes()),
+        &EncodingKey::from_secret(get_jwt_secret().as_bytes()),
     )
     .map_err(|e| e.to_string())
 }
@@ -187,7 +196,7 @@ pub fn create_token(user_id: i64, username: &str) -> Result<String, String> {
 pub fn verify_token(token: &str) -> Result<Claims, String> {
     let data = jsonwebtoken::decode::<Claims>(
         token,
-        &DecodingKey::from_secret(JWT_SECRET.as_bytes()),
+        &DecodingKey::from_secret(get_jwt_secret().as_bytes()),
         &Validation::default(),
     )
     .map_err(|e| e.to_string())?;

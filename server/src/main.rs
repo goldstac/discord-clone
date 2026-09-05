@@ -27,8 +27,16 @@ async fn health() -> Json<HealthResponse> {
 
 #[tokio::main]
 async fn main() {
-    let database_url = "sqlite:discord.db?mode=rwc";
-    let pool = db::init_db(database_url)
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "sqlite:discord.db?mode=rwc".to_string());
+
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| "discord-clone-secret-change-in-production".to_string());
+
+    // Set JWT secret for auth module
+    auth::set_jwt_secret(&jwt_secret);
+
+    let pool = db::init_db(&database_url)
         .await
         .expect("Failed to initialize database");
 

@@ -14,7 +14,7 @@
     error = "";
 
     if (password !== confirmPassword) {
-      error = "Passwords don't match";
+      error = "Passwords do not match";
       return;
     }
 
@@ -42,56 +42,67 @@
 
 <div class="auth-container">
   <div class="auth-card">
-    <h1>Create Account</h1>
-    <p class="subtitle">Join the conversation</p>
+    <h1>Create an account</h1>
 
     {#if error}
-      <div class="error">{error}</div>
+      <div class="error">
+        <span class="error-icon">!</span>
+        {error}
+      </div>
     {/if}
 
     <form on:submit|preventDefault={handleSubmit}>
       <div class="field">
-        <label for="username">Username</label>
+        <label for="username">
+          Username <span class="required">*</span>
+        </label>
         <input
           id="username"
           type="text"
           bind:value={username}
-          placeholder="Choose a username"
           required
+          class:error={error}
         />
       </div>
 
       <div class="field">
-        <label for="password">Password</label>
+        <label for="password">
+          Password <span class="required">*</span>
+        </label>
         <input
           id="password"
           type="password"
           bind:value={password}
-          placeholder="Create a password"
           required
+          class:error={error}
         />
       </div>
 
       <div class="field">
-        <label for="confirm">Confirm Password</label>
+        <label for="confirm">
+          Confirm Password <span class="required">*</span>
+        </label>
         <input
           id="confirm"
           type="password"
           bind:value={confirmPassword}
-          placeholder="Confirm your password"
           required
+          class:error={error}
         />
       </div>
 
       <button type="submit" disabled={loading}>
-        {loading ? "Creating account..." : "Continue"}
+        {loading ? "Creating Account..." : "Continue"}
       </button>
+
+      <p class="tos">
+        By registering, you agree to Discord Clone's Terms of Service and Privacy Policy.
+      </p>
     </form>
 
     <p class="switch">
-      Already have an account?
       <button class="link" on:click={() => dispatch("switchToLogin")}>
-        Log In
+        Already have an account?
       </button>
     </p>
   </div>
@@ -103,63 +114,89 @@
     align-items: center;
     justify-content: center;
     height: 100vh;
-    background-color: #313338;
+    background-color: var(--bg-primary);
   }
 
   .auth-card {
-    background-color: #2b2d31;
+    background-color: var(--bg-secondary);
     border-radius: 8px;
     padding: 32px;
-    width: 400px;
-    text-align: center;
+    width: 480px;
+    box-shadow: 0 2px 10px 0 rgba(0,0,0,0.2);
   }
 
   h1 {
-    color: #f2f3f5;
-    margin-bottom: 4px;
-  }
-
-  .subtitle {
-    color: #949ba4;
-    margin-bottom: 24px;
+    color: var(--header-primary);
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    text-align: center;
   }
 
   .error {
-    background-color: #58272f;
-    color: #faa61a;
-    padding: 8px 12px;
+    background-color: rgba(218, 55, 60, 0.15);
+    border-left: 4px solid var(--red);
+    color: var(--text-normal);
+    padding: 10px 16px;
     border-radius: 4px;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
     font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .error-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--red);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
   }
 
   .field {
-    text-align: left;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
   }
 
   label {
     display: block;
-    color: #b5bac1;
+    color: var(--header-secondary);
     font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
+    letter-spacing: 0.02em;
+  }
+
+  .required {
+    color: var(--red);
   }
 
   input {
     width: 100%;
-    padding: 10px 12px;
+    padding: 10px;
     border-radius: 4px;
     border: none;
-    background-color: #1e1f22;
-    color: #dbdee1;
+    background-color: var(--input-bg);
+    color: var(--text-normal);
     font-size: 16px;
     outline: none;
+    transition: border-color 0.15s ease;
   }
 
   input:focus {
-    outline: 2px solid #5865f2;
+    outline: none;
+    box-shadow: 0 0 0 2px var(--brand);
+  }
+
+  input.error {
+    box-shadow: 0 0 0 2px var(--red);
   }
 
   button[type="submit"] {
@@ -167,36 +204,47 @@
     padding: 12px;
     border-radius: 4px;
     border: none;
-    background-color: #5865f2;
+    background-color: var(--brand);
     color: white;
     font-size: 16px;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
-    margin-top: 8px;
+    margin-top: 4px;
+    transition: background-color 0.17s ease, color 0.17s ease;
   }
 
-  button[type="submit"]:hover {
-    background-color: #4752c4;
+  button[type="submit"]:hover:not(:disabled) {
+    background-color: var(--brand-hover);
   }
 
   button[type="submit"]:disabled {
-    opacity: 0.6;
+    opacity: 0.5;
     cursor: not-allowed;
   }
 
+  .tos {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-top: 12px;
+    text-align: center;
+    line-height: 1.4;
+  }
+
   .switch {
-    color: #949ba4;
+    color: var(--text-muted);
     font-size: 14px;
-    margin-top: 16px;
+    margin-top: 8px;
+    text-align: center;
   }
 
   .link {
     background: none;
     border: none;
-    color: #00a8fc;
+    color: var(--text-link);
     cursor: pointer;
     font-size: 14px;
     padding: 0;
+    text-decoration: none;
   }
 
   .link:hover {
