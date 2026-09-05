@@ -1,3 +1,5 @@
+mod db;
+
 use axum::{routing::get, Router, Json};
 use serde::Serialize;
 use tower_http::cors::{Any, CorsLayer};
@@ -17,6 +19,13 @@ async fn health() -> Json<HealthResponse> {
 
 #[tokio::main]
 async fn main() {
+    let database_url = "sqlite:discord.db?mode=rwc";
+    let _pool = db::init_db(database_url)
+        .await
+        .expect("Failed to initialize database");
+
+    println!("Database initialized successfully");
+
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
