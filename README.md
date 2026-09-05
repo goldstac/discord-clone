@@ -37,38 +37,6 @@ npm install
 npm run dev
 ```
 
-## Deployment
-
-### Free Options
-
-**Railway (Recommended)**
-- Free Trial: $5 credit for 30 days (no card required)
-- Free Plan: $1/month credit forever (small apps)
-- Includes persistent storage
-- Deploy: Connect GitHub → auto-deploys
-
-**Fly.io**
-- Free allowance: 3 shared-cpu-1x VMs, 160GB bandwidth
-- Deploy with Dockerfile
-
-### Paid Options
-
-**Render ($7/month)**
-- Requires paid Starter plan for persistent disks
-- Free tier exists but data resets on each deploy
-
-**Railway Hobby ($5/month)**
-- $5/month usage credit included
-- Good for always-on apps
-
-### Client (Vercel) - FREE
-1. Create a [Vercel](https://vercel.com) account
-2. Click "New Project" → Import this repository
-3. Set environment variables:
-   - `VITE_API_URL`: `https://your-server.up.railway.app`
-   - `VITE_WS_URL`: `wss://your-server.up.railway.app`
-4. Deploy
-
 ## Tech Stack
 | Component | Technology |
 |-----------|-----------|
