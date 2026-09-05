@@ -33,10 +33,10 @@ pub struct UserResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Claims {
-    sub: i64,
-    username: String,
-    exp: usize,
+pub struct Claims {
+    pub sub: i64,
+    pub username: String,
+    pub exp: usize,
 }
 
 pub async fn register(
@@ -171,7 +171,7 @@ fn create_token(user_id: i64, username: &str) -> Result<String, String> {
     .map_err(|e| e.to_string())
 }
 
-fn verify_token(token: &str) -> Result<Claims, String> {
+pub fn verify_token(token: &str) -> Result<Claims, String> {
     let data = jsonwebtoken::decode::<Claims>(
         token,
         &DecodingKey::from_secret(JWT_SECRET.as_bytes()),

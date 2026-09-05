@@ -1,5 +1,6 @@
 mod auth;
 mod db;
+mod handlers;
 
 use axum::{routing::get, routing::post, Router, Json};
 use serde::Serialize;
@@ -34,9 +35,15 @@ async fn main() {
 
     let app = Router::new()
         .route("/api/health", get(health))
+        // Auth
         .route("/api/auth/register", post(auth::register))
         .route("/api/auth/login", post(auth::login))
         .route("/api/users/me", get(auth::get_me))
+        // Servers
+        .route("/api/servers", get(handlers::list_servers).post(handlers::create_server))
+        .route("/api/servers/{id}/channels", get(handlers::list_channels).post(handlers::create_channel))
+        .route("/api/servers/{id}/join", post(handlers::join_server))
+        .route("/api/servers/{id}/invites", post(handlers::create_invite))
         .with_state(pool)
         .layer(cors);
 
