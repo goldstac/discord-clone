@@ -1,0 +1,183 @@
+use axum::{extract::State, Json, http::HeaderMap};
+use bcrypt::{hash, verify, DEFAULT_COST};
+use chrono::{Duration, Utc};
+use jsonwebtoken::{encode, DecodingKey, EncodingKey, Header, Validation};
+use serde::{Deserialize, Serialize};
+use sqlx::SqlitePool;
+
+const JWT_SECRET: &str = "discord-clone-secret-change-in-production";
+
+#[derive(Debug, Deserialize)]
+pub struct RegisterRequest {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LoginRequest {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AuthResponse {
+    pub token: String,
+    pub user: UserResponse,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UserResponse {
+    pub id: i64,
+    pub username: String,
+    pub display_name: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Claims {
+    sub: i64,
+    username: String,
+    exp: usize,
+}
+
+pub async fn register(
+    State(pool): State<SqlitePool>,
+    Json(input): Json<RegisterRequest>,
+) -> Result<Json<AuthResponse>, String> {
+    if input.username.len() < 3 || input.username.len() > 32 {
+        return Err("Username must be 3-32 characters".to_string());
+    }
+    if input.password.len() < 6 {
+        return Err("Password must be at least 6 characters".to_string());
+    }
+
+    let existing = sqlx::query("SELECT id FROM users WHERE username = ?")
+        .bind(&input.username)
+        .fetch_optional(&pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if existing.is_some() {
+        return Err("Username already taken".to_string());
+    }
+
+    let password_hash = hash(&input.password, DEFAULT_COST)
+        .map_err(|e| e.to_string())?;
+
+    let result = sqlx::query("INSERT INTO users (username, password_hash) VALUES (?, ?)")
+        .bind(&input.username)
+        .bind(&password_hash)
+        .execute(&pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let user_id = result.last_insert_rowid();
+
+    let token = create_token(user_id, &input.username)?;
+
+    Ok(Json(AuthResponse {
+        token,
+        user: UserResponse {
+            id: user_id,
+            username: input.username,
+            display_name: None,
+        },
+    }))
+}
+
+pub async fn login(
+    State(pool): State<SqlitePool>,
+    Json(input): Json<LoginRequest>,
+) -> Result<Json<AuthResponse>, String> {
+    let user = sqlx::query_as::<_, (i64, String, Option<String>)>(
+        "SELECT id, username, display_name FROM users WHERE username = ?",
+    )
+    .bind(&input.username)
+    .fetch_optional(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let (user_id, username, display_name) = user.ok_or("Invalid username or password")?;
+
+    let password_hash = sqlx::query_scalar::<_, String>("SELECT password_hash FROM users WHERE id = ?")
+        .bind(user_id)
+        .fetch_one(&pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    verify(&input.password, &password_hash)
+        .map_err(|_| "Invalid username or password".to_string())?;
+
+    let token = create_token(user_id, &username)?;
+
+    Ok(Json(AuthResponse {
+        token,
+        user: UserResponse {
+            id: user_id,
+            username,
+            display_name,
+        },
+    }))
+}
+
+pub async fn get_me(
+    State(pool): State<SqlitePool>,
+    headers: HeaderMap,
+) -> Result<Json<UserResponse>, String> {
+    let auth_header = headers
+        .get("Authorization")
+        .and_then(|v| v.to_str().ok())
+        .ok_or("Missing Authorization header")?;
+
+    let token = auth_header
+        .strip_prefix("Bearer ")
+        .ok_or("Invalid Authorization format")?;
+
+    let claims = verify_token(token)?;
+
+    let user = sqlx::query_as::<_, (i64, String, Option<String>)>(
+        "SELECT id, username, display_name FROM users WHERE id = ?",
+    )
+    .bind(claims.sub)
+    .fetch_optional(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let (id, username, display_name) = user.ok_or("User not found".to_string())?;
+
+    Ok(Json(UserResponse {
+        id,
+        username,
+        display_name,
+    }))
+}
+
+fn create_token(user_id: i64, username: &str) -> Result<String, String> {
+    let exp = Utc::now()
+        .checked_add_signed(Duration::hours(24))
+        .expect("valid timestamp")
+        .timestamp() as usize;
+
+    let claims = Claims {
+        sub: user_id,
+        username: username.to_string(),
+        exp,
+    };
+
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(JWT_SECRET.as_bytes()),
+    )
+    .map_err(|e| e.to_string())
+}
+
+fn verify_token(token: &str) -> Result<Claims, String> {
+    let data = jsonwebtoken::decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(JWT_SECRET.as_bytes()),
+        &Validation::default(),
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(data.claims)
+}
