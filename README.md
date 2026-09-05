@@ -39,35 +39,27 @@ npm run dev
 
 ## Deployment
 
-### Server (Railway) - FREE
-1. Create a [Railway](https://railway.app) account
-2. Click "New Project" → "Deploy from GitHub repo"
-3. Select this repository
-4. Add environment variables:
-   - `DATABASE_URL`: `sqlite:/data/discord.db?mode=rwc`
-   - `JWT_SECRET`: (generate a random secret)
-5. Railway will auto-deploy using the Dockerfile
-6. **Free tier includes persistent storage!**
+### Free Options
 
-### Server (Render) - $7/month
-1. Create a [Render](https://render.com) account
-2. Click "New" → "Web Service"
-3. Connect your GitHub repository
-4. Configure:
-   - **Name:** discord-clone-server
-   - **Runtime:** Rust
-   - **Build Command:** `cd server && cargo build --release --bin discord-clone-server`
-   - **Start Command:** `cd server && ./target/release/discord-clone-server`
-   - **Plan:** Starter ($7/month) - required for persistent disk
-5. Add environment variables:
-   - `DATABASE_URL`: `sqlite:/data/discord.db?mode=rwc`
-   - `JWT_SECRET`: (generate a random secret)
-6. Add a Disk (required for data persistence):
-   - **Mount Path:** `/data`
-   - **Size:** 1 GB
-7. Create Web Service
+**Railway (Recommended)**
+- Free Trial: $5 credit for 30 days (no card required)
+- Free Plan: $1/month credit forever (small apps)
+- Includes persistent storage
+- Deploy: Connect GitHub → auto-deploys
 
-> **Note:** Render's free tier doesn't support persistent disks. Your database will reset on each deploy. Use Railway for free hosting.
+**Fly.io**
+- Free allowance: 3 shared-cpu-1x VMs, 160GB bandwidth
+- Deploy with Dockerfile
+
+### Paid Options
+
+**Render ($7/month)**
+- Requires paid Starter plan for persistent disks
+- Free tier exists but data resets on each deploy
+
+**Railway Hobby ($5/month)**
+- $5/month usage credit included
+- Good for always-on apps
 
 ### Client (Vercel) - FREE
 1. Create a [Vercel](https://vercel.com) account
