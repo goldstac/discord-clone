@@ -39,6 +39,24 @@ npm run dev
 
 ## Deployment
 
+### Server (Render)
+1. Create a [Render](https://render.com) account
+2. Click "New" → "Web Service"
+3. Connect your GitHub repository
+4. Configure:
+   - **Name:** discord-clone-server
+   - **Runtime:** Rust
+   - **Build Command:** `cd server && cargo build --release --bin discord-clone-server`
+   - **Start Command:** `cd server && ./target/release/discord-clone-server`
+   - **Plan:** Free
+5. Add environment variables:
+   - `DATABASE_URL`: `sqlite:/data/discord.db?mode=rwc`
+   - `JWT_SECRET`: (generate a random secret)
+6. Add a Disk:
+   - **Mount Path:** `/data`
+   - **Size:** 1 GB
+7. Create Web Service
+
 ### Server (Railway)
 1. Create a [Railway](https://railway.app) account
 2. Click "New Project" → "Deploy from GitHub repo"
@@ -52,8 +70,8 @@ npm run dev
 1. Create a [Vercel](https://vercel.com) account
 2. Click "New Project" → Import this repository
 3. Set environment variables:
-   - `VITE_API_URL`: `https://your-server.up.railway.app`
-   - `VITE_WS_URL`: `wss://your-server.up.railway.app`
+   - `VITE_API_URL`: `https://your-server.onrender.com`
+   - `VITE_WS_URL`: `wss://your-server.onrender.com`
 4. Deploy
 
 ## Tech Stack

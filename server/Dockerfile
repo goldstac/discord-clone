@@ -7,13 +7,14 @@ RUN cargo build --release
 RUN rm -rf src
 
 COPY server/src ./src
-RUN cargo build --release
+RUN touch src/main.rs && cargo build --release
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /data
 COPY --from=builder /app/target/release/discord-clone-server /usr/local/bin/
 
-ENV DATABASE_URL=sqlite:///data/discord.db
+ENV DATABASE_URL=sqlite:/data/discord.db?mode=rwc
 ENV JWT_SECRET=change-this-to-a-random-secret
 EXPOSE 3000
 
