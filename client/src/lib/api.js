@@ -35,7 +35,7 @@ export async function register(username, password) {
     body: JSON.stringify({ username, password }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data);
+  if (!res.ok) throw new Error(data.error || "Request failed");
   setToken(data.token);
   return data;
 }
@@ -47,7 +47,7 @@ export async function login(username, password) {
     body: JSON.stringify({ username, password }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data);
+  if (!res.ok) throw new Error(data.error || "Request failed");
   setToken(data.token);
   return data;
 }
@@ -55,14 +55,14 @@ export async function login(username, password) {
 export async function getMe() {
   const res = await fetch(`${API_URL}/api/users/me`, { headers: getHeaders() });
   const data = await res.json();
-  if (!res.ok) throw new Error(data);
+  if (!res.ok) throw new Error(data.error || "Request failed");
   return data;
 }
 
 export async function getServers() {
   const res = await fetch(`${API_URL}/api/servers`, { headers: getHeaders() });
   const data = await res.json();
-  if (!res.ok) throw new Error(data);
+  if (!res.ok) throw new Error(data.error || "Request failed");
   return data;
 }
 
@@ -73,7 +73,7 @@ export async function createServer(name) {
     body: JSON.stringify({ name }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data);
+  if (!res.ok) throw new Error(data.error || "Request failed");
   return data;
 }
 
@@ -84,7 +84,7 @@ export async function joinServer(code) {
     body: JSON.stringify({ code }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data);
+  if (!res.ok) throw new Error(data.error || "Request failed");
   return data;
 }
 
@@ -93,7 +93,7 @@ export async function getChannels(serverId) {
     headers: getHeaders(),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data);
+  if (!res.ok) throw new Error(data.error || "Request failed");
   return data;
 }
 
@@ -104,7 +104,7 @@ export async function createChannel(serverId, name) {
     body: JSON.stringify({ name }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data);
+  if (!res.ok) throw new Error(data.error || "Request failed");
   return data;
 }
 
@@ -113,7 +113,7 @@ export async function getMessages(channelId) {
     headers: getHeaders(),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data);
+  if (!res.ok) throw new Error(data.error || "Request failed");
   return data;
 }
 
@@ -124,7 +124,7 @@ export async function sendMessage(channelId, content) {
     body: JSON.stringify({ content }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data);
+  if (!res.ok) throw new Error(data.error || "Request failed");
   return data;
 }
 
@@ -134,7 +134,7 @@ export async function createInvite(serverId) {
     headers: getHeaders(),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data);
+  if (!res.ok) throw new Error(data.error || "Request failed");
   return data;
 }
 
