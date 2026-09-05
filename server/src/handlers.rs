@@ -1,20 +1,30 @@
-use axum::{extract::{Path, State}, Json, http::HeaderMap};
+use axum::{extract::{Path, State}, http::{HeaderMap, StatusCode}, Json};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::verify_token;
 use crate::ws::SharedState;
 
-fn get_user_id(headers: &HeaderMap) -> Result<i64, String> {
+#[derive(Serialize)]
+pub struct ErrorResponse {
+    pub error: String,
+}
+
+fn err(msg: &str) -> (StatusCode, Json<ErrorResponse>) {
+    (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: msg.to_string() }))
+}
+
+fn get_user_id(headers: &HeaderMap) -> Result<i64, (StatusCode, Json<ErrorResponse>)> {
     let auth_header = headers
         .get("Authorization")
         .and_then(|v| v.to_str().ok())
-        .ok_or("Missing Authorization header")?;
+        .ok_or_else(|| err("Missing Authorization header"))?;
 
     let token = auth_header
         .strip_prefix("Bearer ")
-        .ok_or("Invalid Authorization format")?;
+        .ok_or_else(|| err("Invalid Authorization format"))?;
 
-    let claims = verify_token(token)?;
+    let claims = verify_token(token)
+        .map_err(|e| err(&e))?;
     Ok(claims.sub)
 }
 
@@ -65,7 +75,7 @@ pub struct InviteResponse {
 pub async fn list_servers(
     State(state): State<SharedState>,
     headers: HeaderMap,
-) -> Result<Json<Vec<ServerResponse>>, String> {
+) -> Result<Json<Vec<ServerResponse>>, (StatusCode, Json<ErrorResponse>)> {
     let user_id = get_user_id(&headers)?;
 
     let servers = sqlx::query_as::<_, (i64, String, Option<String>, i64)>(
@@ -79,7 +89,7 @@ pub async fn list_servers(
     .bind(user_id)
     .fetch_all(&state.pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| err(&e.to_string()))?;
 
     let result = servers
         .into_iter()
@@ -98,11 +108,11 @@ pub async fn create_server(
     State(state): State<SharedState>,
     headers: HeaderMap,
     Json(input): Json<CreateServerRequest>,
-) -> Result<Json<ServerResponse>, String> {
+) -> Result<(StatusCode, Json<ServerResponse>), (StatusCode, Json<ErrorResponse>)> {
     let user_id = get_user_id(&headers)?;
 
     if input.name.len() < 2 || input.name.len() > 100 {
-        return Err("Server name must be 2-100 characters".to_string());
+        return Err(err("Server name must be 2-100 characters"));
     }
 
     let result = sqlx::query("INSERT INTO servers (name, owner_id) VALUES (?, ?)")
@@ -110,7 +120,7 @@ pub async fn create_server(
         .bind(user_id)
         .execute(&state.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| err(&e.to_string()))?;
 
     let server_id = result.last_insert_rowid();
 
@@ -119,13 +129,13 @@ pub async fn create_server(
         .bind(user_id)
         .execute(&state.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| err(&e.to_string()))?;
 
     sqlx::query("INSERT INTO channels (server_id, name, type) VALUES (?, 'general', 'text')")
         .bind(server_id)
         .execute(&state.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| err(&e.to_string()))?;
 
     let invite_code = generate_invite_code();
     sqlx::query("INSERT INTO server_invites (server_id, code, created_by) VALUES (?, ?, ?)")
@@ -134,21 +144,21 @@ pub async fn create_server(
         .bind(user_id)
         .execute(&state.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| err(&e.to_string()))?;
 
-    Ok(Json(ServerResponse {
+    Ok((StatusCode::CREATED, Json(ServerResponse {
         id: server_id,
         name: input.name,
         icon_url: None,
         owner_id: user_id,
-    }))
+    })))
 }
 
 pub async fn join_server(
     State(state): State<SharedState>,
     headers: HeaderMap,
     Json(input): Json<JoinServerRequest>,
-) -> Result<Json<ServerResponse>, String> {
+) -> Result<Json<ServerResponse>, (StatusCode, Json<ErrorResponse>)> {
     let user_id = get_user_id(&headers)?;
 
     let invite = sqlx::query_as::<_, (i64, i64, i32, Option<i32>)>(
@@ -157,14 +167,14 @@ pub async fn join_server(
     .bind(&input.code)
     .fetch_optional(&state.pool)
     .await
-    .map_err(|e| e.to_string())?
-    .ok_or("Invalid invite code")?;
+    .map_err(|e| err(&e.to_string()))?
+    .ok_or_else(|| err("Invalid invite code"))?;
 
     let (_invite_id, server_id, uses, max_uses) = invite;
 
     if let Some(max) = max_uses {
         if uses >= max {
-            return Err("Invite code has expired".to_string());
+            return Err(err("Invite code has expired"));
         }
     }
 
@@ -175,10 +185,10 @@ pub async fn join_server(
     .bind(user_id)
     .fetch_one(&state.pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| err(&e.to_string()))?;
 
     if already_member > 0 {
-        return Err("Already a member of this server".to_string());
+        return Err(err("Already a member of this server"));
     }
 
     sqlx::query("INSERT INTO server_members (server_id, user_id) VALUES (?, ?)")
@@ -186,13 +196,13 @@ pub async fn join_server(
         .bind(user_id)
         .execute(&state.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| err(&e.to_string()))?;
 
     sqlx::query("UPDATE server_invites SET uses = uses + 1 WHERE code = ?")
         .bind(&input.code)
         .execute(&state.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| err(&e.to_string()))?;
 
     let server = sqlx::query_as::<_, (i64, String, Option<String>, i64)>(
         "SELECT id, name, icon_url, owner_id FROM servers WHERE id = ?",
@@ -200,7 +210,7 @@ pub async fn join_server(
     .bind(server_id)
     .fetch_one(&state.pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| err(&e.to_string()))?;
 
     Ok(Json(ServerResponse {
         id: server.0,
@@ -214,7 +224,7 @@ pub async fn list_channels(
     State(state): State<SharedState>,
     headers: HeaderMap,
     Path(server_id): Path<i64>,
-) -> Result<Json<Vec<ChannelResponse>>, String> {
+) -> Result<Json<Vec<ChannelResponse>>, (StatusCode, Json<ErrorResponse>)> {
     let user_id = get_user_id(&headers)?;
 
     let is_member = sqlx::query_scalar::<_, i64>(
@@ -224,10 +234,10 @@ pub async fn list_channels(
     .bind(user_id)
     .fetch_one(&state.pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| err(&e.to_string()))?;
 
     if is_member == 0 {
-        return Err("Not a member of this server".to_string());
+        return Err(err("Not a member of this server"));
     }
 
     let channels = sqlx::query_as::<_, (i64, String, String, Option<String>, i32)>(
@@ -236,7 +246,7 @@ pub async fn list_channels(
     .bind(server_id)
     .fetch_all(&state.pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| err(&e.to_string()))?;
 
     let result = channels
         .into_iter()
@@ -257,7 +267,7 @@ pub async fn create_channel(
     headers: HeaderMap,
     Path(server_id): Path<i64>,
     Json(input): Json<CreateChannelRequest>,
-) -> Result<Json<ChannelResponse>, String> {
+) -> Result<(StatusCode, Json<ChannelResponse>), (StatusCode, Json<ErrorResponse>)> {
     let user_id = get_user_id(&headers)?;
 
     let is_member = sqlx::query_scalar::<_, i64>(
@@ -267,14 +277,14 @@ pub async fn create_channel(
     .bind(user_id)
     .fetch_one(&state.pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| err(&e.to_string()))?;
 
     if is_member == 0 {
-        return Err("Not a member of this server".to_string());
+        return Err(err("Not a member of this server"));
     }
 
     if input.name.len() < 1 || input.name.len() > 100 {
-        return Err("Channel name must be 1-100 characters".to_string());
+        return Err(err("Channel name must be 1-100 characters"));
     }
 
     let max_pos = sqlx::query_scalar::<_, Option<i32>>(
@@ -283,7 +293,7 @@ pub async fn create_channel(
     .bind(server_id)
     .fetch_one(&state.pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| err(&e.to_string()))?;
 
     let position = max_pos.unwrap_or(0) + 1;
 
@@ -296,24 +306,24 @@ pub async fn create_channel(
     .bind(position)
     .execute(&state.pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| err(&e.to_string()))?;
 
     let channel_id = result.last_insert_rowid();
 
-    Ok(Json(ChannelResponse {
+    Ok((StatusCode::CREATED, Json(ChannelResponse {
         id: channel_id,
         name: input.name,
         channel_type: input.channel_type,
         topic: None,
         position,
-    }))
+    })))
 }
 
 pub async fn create_invite(
     State(state): State<SharedState>,
     headers: HeaderMap,
     Path(server_id): Path<i64>,
-) -> Result<Json<InviteResponse>, String> {
+) -> Result<(StatusCode, Json<InviteResponse>), (StatusCode, Json<ErrorResponse>)> {
     let user_id = get_user_id(&headers)?;
 
     let is_member = sqlx::query_scalar::<_, i64>(
@@ -323,17 +333,17 @@ pub async fn create_invite(
     .bind(user_id)
     .fetch_one(&state.pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| err(&e.to_string()))?;
 
     if is_member == 0 {
-        return Err("Not a member of this server".to_string());
+        return Err(err("Not a member of this server"));
     }
 
     let server_name = sqlx::query_scalar::<_, String>("SELECT name FROM servers WHERE id = ?")
         .bind(server_id)
         .fetch_one(&state.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| err(&e.to_string()))?;
 
     let code = generate_invite_code();
 
@@ -343,12 +353,12 @@ pub async fn create_invite(
         .bind(user_id)
         .execute(&state.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| err(&e.to_string()))?;
 
-    Ok(Json(InviteResponse {
+    Ok((StatusCode::CREATED, Json(InviteResponse {
         code,
         server_name,
-    }))
+    })))
 }
 
 fn generate_invite_code() -> String {
@@ -378,7 +388,7 @@ pub async fn list_messages(
     State(state): State<SharedState>,
     headers: HeaderMap,
     Path(channel_id): Path<i64>,
-) -> Result<Json<Vec<MessageResponse>>, String> {
+) -> Result<Json<Vec<MessageResponse>>, (StatusCode, Json<ErrorResponse>)> {
     let user_id = get_user_id(&headers)?;
 
     let channel = sqlx::query_as::<_, (i64, i64)>(
@@ -387,8 +397,8 @@ pub async fn list_messages(
     .bind(channel_id)
     .fetch_optional(&state.pool)
     .await
-    .map_err(|e| e.to_string())?
-    .ok_or("Channel not found")?;
+    .map_err(|e| err(&e.to_string()))?
+    .ok_or_else(|| err("Channel not found"))?;
 
     let (_, server_id) = channel;
 
@@ -399,10 +409,10 @@ pub async fn list_messages(
     .bind(user_id)
     .fetch_one(&state.pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| err(&e.to_string()))?;
 
     if is_member == 0 {
-        return Err("Not a member of this server".to_string());
+        return Err(err("Not a member of this server"));
     }
 
     let messages = sqlx::query_as::<_, (i64, i64, String, String, String)>(
@@ -418,7 +428,7 @@ pub async fn list_messages(
     .bind(channel_id)
     .fetch_all(&state.pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| err(&e.to_string()))?;
 
     let result = messages
         .into_iter()
@@ -440,11 +450,11 @@ pub async fn send_message(
     headers: HeaderMap,
     Path(channel_id): Path<i64>,
     Json(input): Json<SendMessageRequest>,
-) -> Result<Json<MessageResponse>, String> {
+) -> Result<(StatusCode, Json<MessageResponse>), (StatusCode, Json<ErrorResponse>)> {
     let user_id = get_user_id(&headers)?;
 
     if input.content.trim().is_empty() {
-        return Err("Message cannot be empty".to_string());
+        return Err(err("Message cannot be empty"));
     }
 
     let channel = sqlx::query_as::<_, (i64, i64)>(
@@ -453,8 +463,8 @@ pub async fn send_message(
     .bind(channel_id)
     .fetch_optional(&state.pool)
     .await
-    .map_err(|e| e.to_string())?
-    .ok_or("Channel not found")?;
+    .map_err(|e| err(&e.to_string()))?
+    .ok_or_else(|| err("Channel not found"))?;
 
     let (_, server_id) = channel;
 
@@ -465,17 +475,17 @@ pub async fn send_message(
     .bind(user_id)
     .fetch_one(&state.pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| err(&e.to_string()))?;
 
     if is_member == 0 {
-        return Err("Not a member of this server".to_string());
+        return Err(err("Not a member of this server"));
     }
 
     let username = sqlx::query_scalar::<_, String>("SELECT username FROM users WHERE id = ?")
         .bind(user_id)
         .fetch_one(&state.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| err(&e.to_string()))?;
 
     let result = sqlx::query("INSERT INTO messages (channel_id, user_id, content) VALUES (?, ?, ?)")
         .bind(channel_id)
@@ -483,16 +493,16 @@ pub async fn send_message(
         .bind(&input.content)
         .execute(&state.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| err(&e.to_string()))?;
 
     let message_id = result.last_insert_rowid();
     let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
 
-    Ok(Json(MessageResponse {
+    Ok((StatusCode::CREATED, Json(MessageResponse {
         id: message_id,
         user_id,
         username,
         content: input.content,
         created_at: now,
-    }))
+    })))
 }
