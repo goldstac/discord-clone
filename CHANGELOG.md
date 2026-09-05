@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned for Alpha 3
+### Planned for Alpha 4
 - Members sidebar
 - User profiles
 - Better avatars with usernames
@@ -20,6 +20,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Voice/video chat
 - Server settings
 - User roles/permissions
+
+## [v1.0.0-alpha.3] - 2026-09-05
+
+### Added
+- **Server Backend (Axum + SQLite)**
+  - Axum web server running on localhost:3000
+  - SQLite database with 6 tables (users, servers, channels, messages, server_members, server_invites)
+  - Health check endpoint (`GET /api/health`)
+
+- **Authentication System**
+  - User registration with bcrypt password hashing
+  - User login with JWT token generation (24h expiry)
+  - Protected endpoints via `Authorization: Bearer` header
+  - Get current user profile (`GET /api/users/me`)
+
+- **Server & Channel Management**
+  - Create servers with auto-generated `#general` channel
+  - List user's servers
+  - Create channels within servers
+  - List channels for a server
+  - Join servers via invite codes
+  - Generate invite codes
+
+- **Real-time Messaging**
+  - WebSocket endpoint (`/ws?token=<jwt>`) for live chat
+  - Broadcast channel for instant message delivery
+  - Message persistence in SQLite database
+  - Message history endpoint (last 50 messages)
+
+- **Client Integration**
+  - API client for all server endpoints
+  - JWT token storage in localStorage
+  - Auto-login on app launch
+  - Login/Register screens with Discord dark theme
+  - Server/channel creation from UI
+  - Real-time message display via WebSocket
+  - Logout functionality
+
+### Fixed
+- WebSocket messages now persist to database (previously broadcast-only)
+- All API errors return JSON format instead of plain text
+- Client properly displays error messages
+
+### Known Limitations
+- No file attachments
+- No voice/video chat
+- No typing indicators
+- No message edit/delete
+- No user roles/permissions
 
 ## [v1.0.0-alpha.2] - 2026-09-05
 
