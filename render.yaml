@@ -2,7 +2,7 @@ services:
   - type: web
     name: discord-clone-server
     runtime: rust
-    plan: free
+    plan: starter
     buildCommand: cd server && cargo build --release --bin discord-clone-server
     startCommand: cd server && ./target/release/discord-clone-server
     envVars:

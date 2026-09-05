@@ -39,7 +39,17 @@ npm run dev
 
 ## Deployment
 
-### Server (Render)
+### Server (Railway) - FREE
+1. Create a [Railway](https://railway.app) account
+2. Click "New Project" → "Deploy from GitHub repo"
+3. Select this repository
+4. Add environment variables:
+   - `DATABASE_URL`: `sqlite:/data/discord.db?mode=rwc`
+   - `JWT_SECRET`: (generate a random secret)
+5. Railway will auto-deploy using the Dockerfile
+6. **Free tier includes persistent storage!**
+
+### Server (Render) - $7/month
 1. Create a [Render](https://render.com) account
 2. Click "New" → "Web Service"
 3. Connect your GitHub repository
@@ -48,30 +58,23 @@ npm run dev
    - **Runtime:** Rust
    - **Build Command:** `cd server && cargo build --release --bin discord-clone-server`
    - **Start Command:** `cd server && ./target/release/discord-clone-server`
-   - **Plan:** Free
+   - **Plan:** Starter ($7/month) - required for persistent disk
 5. Add environment variables:
    - `DATABASE_URL`: `sqlite:/data/discord.db?mode=rwc`
    - `JWT_SECRET`: (generate a random secret)
-6. Add a Disk:
+6. Add a Disk (required for data persistence):
    - **Mount Path:** `/data`
    - **Size:** 1 GB
 7. Create Web Service
 
-### Server (Railway)
-1. Create a [Railway](https://railway.app) account
-2. Click "New Project" → "Deploy from GitHub repo"
-3. Select this repository
-4. Add environment variables:
-   - `DATABASE_URL`: `sqlite:/data/discord.db?mode=rwc`
-   - `JWT_SECRET`: (generate a random secret)
-5. Railway will auto-deploy using the Dockerfile
+> **Note:** Render's free tier doesn't support persistent disks. Your database will reset on each deploy. Use Railway for free hosting.
 
-### Client (Vercel)
+### Client (Vercel) - FREE
 1. Create a [Vercel](https://vercel.com) account
 2. Click "New Project" → Import this repository
 3. Set environment variables:
-   - `VITE_API_URL`: `https://your-server.onrender.com`
-   - `VITE_WS_URL`: `wss://your-server.onrender.com`
+   - `VITE_API_URL`: `https://your-server.up.railway.app`
+   - `VITE_WS_URL`: `wss://your-server.up.railway.app`
 4. Deploy
 
 ## Tech Stack
