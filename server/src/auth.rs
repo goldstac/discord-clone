@@ -3,7 +3,8 @@ use bcrypt::{hash, verify, DEFAULT_COST};
 use chrono::{Duration, Utc};
 use jsonwebtoken::{encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+
+use crate::ws::SharedState;
 
 const JWT_SECRET: &str = "discord-clone-secret-change-in-production";
 
@@ -40,7 +41,7 @@ pub struct Claims {
 }
 
 pub async fn register(
-    State(pool): State<SqlitePool>,
+    State(state): State<SharedState>,
     Json(input): Json<RegisterRequest>,
 ) -> Result<Json<AuthResponse>, String> {
     if input.username.len() < 3 || input.username.len() > 32 {
@@ -52,7 +53,7 @@ pub async fn register(
 
     let existing = sqlx::query("SELECT id FROM users WHERE username = ?")
         .bind(&input.username)
-        .fetch_optional(&pool)
+        .fetch_optional(&state.pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -66,7 +67,7 @@ pub async fn register(
     let result = sqlx::query("INSERT INTO users (username, password_hash) VALUES (?, ?)")
         .bind(&input.username)
         .bind(&password_hash)
-        .execute(&pool)
+        .execute(&state.pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -85,14 +86,14 @@ pub async fn register(
 }
 
 pub async fn login(
-    State(pool): State<SqlitePool>,
+    State(state): State<SharedState>,
     Json(input): Json<LoginRequest>,
 ) -> Result<Json<AuthResponse>, String> {
     let user = sqlx::query_as::<_, (i64, String, Option<String>)>(
         "SELECT id, username, display_name FROM users WHERE username = ?",
     )
     .bind(&input.username)
-    .fetch_optional(&pool)
+    .fetch_optional(&state.pool)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -100,7 +101,7 @@ pub async fn login(
 
     let password_hash = sqlx::query_scalar::<_, String>("SELECT password_hash FROM users WHERE id = ?")
         .bind(user_id)
-        .fetch_one(&pool)
+        .fetch_one(&state.pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -120,7 +121,7 @@ pub async fn login(
 }
 
 pub async fn get_me(
-    State(pool): State<SqlitePool>,
+    State(state): State<SharedState>,
     headers: HeaderMap,
 ) -> Result<Json<UserResponse>, String> {
     let auth_header = headers
@@ -138,7 +139,7 @@ pub async fn get_me(
         "SELECT id, username, display_name FROM users WHERE id = ?",
     )
     .bind(claims.sub)
-    .fetch_optional(&pool)
+    .fetch_optional(&state.pool)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -151,7 +152,7 @@ pub async fn get_me(
     }))
 }
 
-fn create_token(user_id: i64, username: &str) -> Result<String, String> {
+pub fn create_token(user_id: i64, username: &str) -> Result<String, String> {
     let exp = Utc::now()
         .checked_add_signed(Duration::hours(24))
         .expect("valid timestamp")

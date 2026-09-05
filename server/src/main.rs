@@ -1,10 +1,16 @@
 mod auth;
 mod db;
 mod handlers;
+mod ws;
+
+use std::sync::Arc;
 
 use axum::{routing::get, routing::post, Router, Json};
 use serde::Serialize;
+use tokio::sync::broadcast;
 use tower_http::cors::{Any, CorsLayer};
+
+use ws::SharedState;
 
 #[derive(Serialize)]
 struct HealthResponse {
@@ -28,6 +34,10 @@ async fn main() {
 
     println!("Database initialized successfully");
 
+    let (sender, _receiver) = broadcast::channel::<String>(100);
+
+    let state: SharedState = Arc::new(ws::AppState { pool, sender });
+
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -35,16 +45,28 @@ async fn main() {
 
     let app = Router::new()
         .route("/api/health", get(health))
-        // Auth
         .route("/api/auth/register", post(auth::register))
         .route("/api/auth/login", post(auth::login))
         .route("/api/users/me", get(auth::get_me))
-        // Servers
-        .route("/api/servers", get(handlers::list_servers).post(handlers::create_server))
-        .route("/api/servers/{id}/channels", get(handlers::list_channels).post(handlers::create_channel))
+        .route(
+            "/api/servers",
+            get(handlers::list_servers).post(handlers::create_server),
+        )
+        .route(
+            "/api/servers/{id}/channels",
+            get(handlers::list_channels).post(handlers::create_channel),
+        )
         .route("/api/servers/{id}/join", post(handlers::join_server))
-        .route("/api/servers/{id}/invites", post(handlers::create_invite))
-        .with_state(pool)
+        .route(
+            "/api/servers/{id}/invites",
+            post(handlers::create_invite),
+        )
+        .route(
+            "/api/channels/{id}/messages",
+            get(handlers::list_messages).post(handlers::send_message),
+        )
+        .route("/ws", get(ws::ws_handler))
+        .with_state(state)
         .layer(cors);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
