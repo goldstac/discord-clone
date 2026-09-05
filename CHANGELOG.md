@@ -7,20 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned for Alpha 2
-- Server creation dialog
-- Channel creation dialog
+### Planned for Alpha 3
 - Members sidebar
 - User profiles
 - Better avatars with usernames
 - Message timestamps with dates
+- Typing indicators
+- Unread message counts
 
 ### Planned for Beta
-- Backend server (Axum + SQLite)
-- User authentication (register/login)
-- Real-time messaging via WebSocket
-- Invite code system
 - File attachments
+- Voice/video chat
+- Server settings
+- User roles/permissions
+
+## [v1.0.0-alpha.2] - 2026-09-05
+
+### Added
+- **Backend Integration**
+  - API client (`api.js`) for all endpoints
+  - JWT token management with auto-refresh
+  - WebSocket connection for real-time messaging
+
+- **Authentication**
+  - Login screen with username/password
+  - Register screen with validation
+  - Auto-login on app launch
+  - Logout functionality
+
+- **Server & Channel Management**
+  - Create servers via API
+  - Create channels via API
+  - Server list fetched from backend
+
+- **Messaging**
+  - Messages stored in SQLite database
+  - Send messages via API
+  - Message history loaded from server
+  - Real-time message delivery via WebSocket
+
+### Known Limitations
+- No file attachments
+- No voice/video chat
+- No typing indicators
+- No message edit/delete
+- No user roles/permissions
 
 ## [v1.0.0-alpha.1] - 2026-09-04
 

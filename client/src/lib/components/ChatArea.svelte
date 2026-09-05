@@ -1,60 +1,76 @@
 <script>
-  import { messages, currentChannel, sendMessage } from "../stores/chatStore.js";
+  import { onMount, afterUpdate } from "svelte";
+  import { currentChannel, messages, sendNewMessage } from "../stores/chatStore.js";
 
-  let newMessage = "";
+  let input = "";
+  let chatArea;
 
-  function handleKeydown(e) {
-    if (e.key === "Enter" && newMessage.trim()) {
-      sendMessage(newMessage.trim());
-      newMessage = "";
+  $: if ($messages) {
+    scrollToBottom();
+  }
+
+  function scrollToBottom() {
+    if (chatArea) {
+      setTimeout(() => {
+        chatArea.scrollTop = chatArea.scrollHeight;
+      }, 50);
     }
   }
 
-  function handleSend() {
-    if (newMessage.trim()) {
-      sendMessage(newMessage.trim());
-      newMessage = "";
+  async function handleSubmit() {
+    if (input.trim() && $currentChannel) {
+      await sendNewMessage(input);
+      input = "";
     }
   }
-
-  $: channelMessages = $messages[$currentChannel] || [];
 </script>
 
-<main class="chat-area">
-  <header class="chat-header">
-    <span class="channel-hash">#</span>
-    <h2>{$currentChannel}</h2>
-  </header>
+<div class="chat-area">
+  {#if $currentChannel}
+    <header class="chat-header">
+      <span class="channel-hash">#</span>
+      <span class="channel-name">{$currentChannel.name}</span>
+    </header>
 
-  <div class="messages">
-    {#each channelMessages as message (message.id)}
-      <div class="message">
-        <div class="message-avatar">{message.avatar}</div>
-        <div class="message-content">
-          <div class="message-header">
-            <span class="message-user">{message.user}</span>
-            <span class="message-time">{message.time}</span>
+    <div class="messages" bind:this={chatArea}>
+      {#each $messages as message (message.id)}
+        <div class="message">
+          <div class="message-avatar">
+            {message.username?.charAt(0)?.toUpperCase() || "U"}
           </div>
-          <p class="message-text">{message.content}</p>
+          <div class="message-content">
+            <div class="message-header">
+              <span class="username">{message.username || "Unknown"}</span>
+              <span class="timestamp">{message.created_at}</span>
+            </div>
+            <div class="text">{message.content}</div>
+          </div>
         </div>
-      </div>
-    {:else}
-      <div class="empty-state">
-        <p>No messages yet. Say something!</p>
-      </div>
-    {/each}
-  </div>
+      {:else}
+        <div class="empty-state">
+          <div class="empty-icon">#</div>
+          <h2>Welcome to #{$currentChannel.name}</h2>
+          <p>This is the start of the channel.</p>
+        </div>
+      {/each}
+    </div>
 
-  <div class="message-input">
-    <input
-      type="text"
-      placeholder="Message #{$currentChannel}"
-      bind:value={newMessage}
-      on:keydown={handleKeydown}
-    />
-    <button class="send-btn" on:click={handleSend}>Send</button>
-  </div>
-</main>
+    <div class="input-area">
+      <form on:submit|preventDefault={handleSubmit}>
+        <input
+          type="text"
+          placeholder="Message #{$currentChannel.name}"
+          bind:value={input}
+        />
+        <button type="submit" disabled={!input.trim()}>Send</button>
+      </form>
+    </div>
+  {:else}
+    <div class="no-channel">
+      <h2>Select a channel to start chatting</h2>
+    </div>
+  {/if}
+</div>
 
 <style>
   .chat-area {
@@ -65,34 +81,36 @@
   }
 
   .chat-header {
-    padding: 12px 16px;
+    padding: 16px;
     border-bottom: 1px solid #1e1f22;
     display: flex;
     align-items: center;
     gap: 8px;
   }
 
-  .chat-header h2 {
+  .channel-hash {
+    color: #80848e;
+    font-size: 24px;
+  }
+
+  .channel-name {
     font-size: 16px;
     font-weight: 600;
     color: #f2f3f5;
   }
 
-  .channel-hash {
-    font-size: 20px;
-    color: #949ba4;
-  }
-
   .messages {
     flex: 1;
-    padding: 16px;
     overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
 
   .message {
     display: flex;
     gap: 16px;
-    padding: 8px 0;
   }
 
   .message-avatar {
@@ -115,64 +133,95 @@
     display: flex;
     align-items: baseline;
     gap: 8px;
+    margin-bottom: 4px;
   }
 
-  .message-user {
+  .username {
     font-weight: 600;
     color: #f2f3f5;
   }
 
-  .message-time {
+  .timestamp {
     font-size: 12px;
     color: #949ba4;
   }
 
-  .message-text {
+  .text {
     color: #dbdee1;
     line-height: 1.4;
+    word-break: break-word;
   }
 
   .empty-state {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     height: 100%;
     color: #949ba4;
   }
 
-  .message-input {
-    padding: 0 16px 16px;
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    color: #5865f2;
+  }
+
+  .empty-state h2 {
+    color: #f2f3f5;
+    margin-bottom: 8px;
+  }
+
+  .input-area {
+    padding: 16px;
+    background-color: #383a40;
+  }
+
+  form {
     display: flex;
     gap: 8px;
   }
 
-  .message-input input {
+  input {
     flex: 1;
     padding: 12px 16px;
     border-radius: 8px;
     border: none;
-    background-color: #383a40;
+    background-color: #1e1f22;
     color: #dbdee1;
     font-size: 16px;
     outline: none;
   }
 
-  .message-input input::placeholder {
+  input::placeholder {
     color: #6d6f78;
   }
 
-  .send-btn {
+  button {
     padding: 12px 24px;
     border-radius: 8px;
     border: none;
     background-color: #5865f2;
     color: white;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.2s;
   }
 
-  .send-btn:hover {
+  button:hover:not(:disabled) {
     background-color: #4752c4;
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .no-channel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #949ba4;
   }
 </style>
